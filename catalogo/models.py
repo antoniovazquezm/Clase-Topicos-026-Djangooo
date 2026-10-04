@@ -22,6 +22,11 @@ class Cancion(models.Model):
     creada_en = models.DateTimeField(auto_now_add=True)
     playlists = models.ManyToManyField(Playlist, related_name="canciones")
 
+# catalogo/models.py (dentro de la clase Cancion, después de __str__)
+    @property
+    def duracion(self):
+        minutos, segundos = divmod(self.duracion_ms // 1000, 60)
+        return f"{minutos}:{segundos:02d}"
     
     class Meta:
         ordering = ['-popularidad']

@@ -1,0 +1,64 @@
+<!-- catalogo/templates/catalogo/lista.html -->
+{% extends "catalogo/base.html" %}
+
+{% block contenido %}
+<form method="get">
+    <input type="text" name="q" value="{{ q }}" placeholder="Título o artista">
+
+    <select name="genero">
+        <option value="">Todos los generos</option>
+        {% for g in generos %}
+        <option value="{{ g }}" {% if g == genero %} selected {% endif %}>
+            {{ g }}
+        </option>
+        {% endfor %}
+    </select>
+    <button type="submit">Buscar</button>
+    
+</form>
+<p> Página {{page_obj.number}} de {{page_obj.paginator.num_pages}}</p>
+
+<!-- <p>{{ total }} resultados{% if total > 50 %}, se muestran los primeros 50{% endif %}.</p> -->
+
+<table>
+    <tr><th>Título</th><th>Artista</th><th>Duración</th><th>Popularidad</th><th>Playlists</th></tr>
+    {% for c in page_obj %}
+    <tr>
+        <td><a href="{% url 'catalogo:detalle' c.pk %}">{{ c.titulo }}</a></td>
+        <td>{{ c.artista }}</td>
+        <td>{{ c.duracion }}</td>
+        <td>{{ c.popularidad }}</td>
+        <td>
+            {% for p in c.playlists.all %}
+                <a href="{% url 'catalogo:detalle_playlist' p.pk %}">{{ p.nombre }}</a>
+                {% if not forloop.last %}, 
+                {% endif %}
+            {% empty %}
+                No pertenece a ninguna playlist
+            {% endfor %}
+        </td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="5">No hay canciones que coincidan.</td></tr>
+    {% endfor %}
+</table>
+
+
+<!-- El div de la paginación tal cual lo copié y pegué de la documentación de Django y lo modifiqué con la pista -->
+<div>
+    <span class="step-links">
+        {% if page_obj.has_previous %}
+        <a href="?q={{ q|urlencode }}&genero={{ genero|urlencode }}&page={{ page_obj.previous_page_number }}">Página anterior</a>
+
+    {% endif %}
+
+        <span class="current">
+            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}.
+        </span>
+
+        {% if page_obj.has_next %}
+            <a href="?q={{ q|urlencode }}&genero={{ genero|urlencode }}&page={{ page_obj.next_page_number }}">Página siguiente</a>
+        {% endif %}
+    </span>
+</div>
+{% endblock %}
