@@ -3,21 +3,70 @@
 {% block titulo %}{{ cancion.titulo }}{% endblock %}
 
 {% block contenido %}
-<h2>{{ cancion.titulo }}</h2>
-<p><strong>Artista:</strong> {{ cancion.artista }}</p>
-<p><strong>Álbum:</strong> {{ cancion.album|default:"Sin álbum" }}</p>
-<p><strong>Lanzamiento:</strong> {{ cancion.fecha_lanzamiento }}</p>
-<p><strong>Duración:</strong> {{ cancion.duracion }}</p>
-<p><strong>Popularidad:</strong> {{ cancion.popularidad }}</p>
+<h2 id="titulo-cancion">Cargando canción...</h2>
+<p><strong>Artista:</strong> <span id="artista"></span></p>
+<p><strong>Álbum:</strong> <span id="album"></span></p>
+<p><strong>Lanzamiento:</strong> <span id="lanzamiento"></span></p>
+<p><strong>Duración:</strong> <span id="duracion"></span></p>
+<p><strong>Popularidad:</strong> <span id="popularidad"></span></p>
 
-<h3>Aparece en {{ cancion.playlists.count }} playlist{{ cancion.playlists.count|pluralize }}</h3>
-<ul>
-    {% for p in cancion.playlists.all %}
+<h3>Aparece en las siguientes playlists</h3>
+<ul id="lista-playlists">
+    <!-- {% for p in cancion.playlists.all %}
     <li>
         <a href="{% url 'catalogo:detalle_playlist' p.pk %}">{{p.nombre }}</a>
         {{ p.nombre }} ({{ p.genero }}, {{ p.subgenero }})</li>
-    {% endfor %}
+    {% endfor %} -->
 </ul>
 
 <p><a href="{% url 'catalogo:lista' %}">Volver a la lista</a></p>
+
+<script>
+async function cargarDetalleCancion() {
+    // Tomamos el ID directamente del final de la URL actual
+    const id = window.location.pathname.split('/').filter(Boolean).pop(); //se divide el texto cada / y borra los valores vacios, pop toma el útlimo valor
+
+    try {
+        const response = await fetch(`/api/canciones/${id}/`); //get
+        if (!response.ok) throw new Error('No encontrada'); //si no es 200, lanza el error
+        
+        const cancion = await response.json(); //parseo a json
+
+        document.getElementById("titulo-cancion").textContent = cancion.titulo; //se buscan las propiedades de la cancion y se asignan a los elementos del html
+        document.getElementById("artista").textContent = cancion.artista;
+        document.getElementById("album").textContent = cancion.album || 'Sin álbum';
+        document.getElementById("lanzamiento").textContent = cancion.fecha_lanzamiento || 'N/A';
+        document.getElementById("popularidad").textContent = cancion.popularidad;
+
+    
+        if (cancion.duracion_ms) {
+            const totalSegundos = Math.floor(cancion.duracion_ms / 1000); //ms a seg
+
+            const minutos = Math.floor(totalSegundos / 60); //seg a min
+            const segundos = totalSegundos % 60; //restante seg
+
+            document.getElementById("duracion").textContent =
+                minutos + ':' + segundos;
+}
+
+        // Renderizar lista de playlists asociadas
+        const ul = document.getElementById("lista-playlists"); //se busca el elemento ul en el html
+        ul.innerHTML = '';
+
+        if (cancion.playlists && cancion.playlists.length > 0) { //si la cancion tiene playlists asociadas
+            cancion.playlists.forEach(p => {
+                ul.innerHTML += `<li><a href="/playlists/${p.id}/">${p.nombre}</a> (${p.genero})</li>`; //se agregan a la lista ul
+            });
+        } else {
+            ul.innerHTML = '<li>No pertenece a ninguna playlist</li>';
+        }
+
+    } catch (err) {
+        document.getElementById("titulo-cancion").textContent = 'Error al cargar la canción';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', cargarDetalleCancion);
+</script>
+
 {% endblock %}

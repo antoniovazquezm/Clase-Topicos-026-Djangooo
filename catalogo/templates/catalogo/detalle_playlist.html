@@ -1,31 +1,79 @@
 {% extends "catalogo/base.html" %}
 
-{% block titulo %}{{ playlist.nombre }}{% endblock %}
-
 {% block contenido %}
-<h2>{{ playlist.nombre }}</h2>
-<p><strong>Genero:</strong> {{ playlist.genero }}</p>
-<p><strong>Subgénero:</strong> {{ playlist.subgenero }}</p>
+<h2 id="nombre-playlist">Cargando playlist...</h2>
+<p><strong>Género:</strong> <span id="genero"></span></p>
+<p><strong>Subgénero:</strong> <span id="subgenero"></span></p>
 
-<h3>Canciones en esta playlist ({{ canciones.count }})</h3>
+<h3>Canciones en esta playlist</h3>
 <table>
-    <tr>
-        <th>Título</th>
-        <th>Artista</th>
-        <th>Duración</th>
-        <th>Popularidad</th>
-    </tr>
-    {% for c in canciones %}
-    <tr>
-        <td><a href="{% url 'catalogo:detalle' c.pk %}">{{ c.titulo }}</a></td>
-        <td>{{ c.artista }}</td>
-        <td>{{ c.duracion }}</td>
-        <td>{{ c.popularidad }}</td>
-    </tr>
-    {% empty %}
-    <tr><td colspan="4">No hay canciones en esta playlist.</td></tr>
-    {% endfor %}
+    <thead>
+        <tr>
+            <th>Título</th>
+            <th>Artista</th>
+            <th>Duración</th>
+            <th>Popularidad</th>
+        </tr>
+    </thead>
+    <tbody id="tabla-canciones">
+
+    </tbody>
 </table>
 
 <p><a href="{% url 'catalogo:lista' %}">Volver a la lista</a></p>
+
+<script>
+async function cargarDetallePlaylist() {
+    const id = window.location.pathname.split('/').filter(Boolean).pop();
+
+    try {
+        const response = await fetch(`/api/playlists/${id}/`);
+        if (!response.ok) throw new Error('No encontrada');
+
+        const playlist = await response.json();
+
+        document.getElementById("nombre-playlist").textContent = playlist.nombre;
+        document.getElementById("genero").textContent = playlist.genero || 'N/A';
+        document.getElementById("subgenero").textContent = playlist.subgenero || 'N/A';
+
+        //fetch de canciones asociadas
+        const resCanciones = await fetch(`/api/canciones/?playlists=${id}`);
+        const dataCanciones = await resCanciones.json();
+        
+        const tbody = document.getElementById("tabla-canciones");
+        tbody.innerHTML = '';
+
+        const canciones = dataCanciones.results || dataCanciones;
+
+        if (canciones && canciones.length > 0) {
+            canciones.forEach(c => {
+            let duracionTexto = "N/A";
+                if (c.duracion_ms) {
+                    const totalSegundos = Math.floor(c.duracion_ms / 1000);
+                    const minutos = Math.floor(totalSegundos / 60);
+                    const segundos = totalSegundos % 60;
+
+                    duracionTexto = minutos + ':' + segundos;
+                }
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td><a href="/canciones/${c.id}/">${c.titulo}</a></td>
+                        <td>${c.artista}</td>
+                        <td>${duracionTexto}</td>
+                        <td>${c.popularidad}</td>
+                    </tr>
+                `;
+            });
+        } else {
+            tbody.innerHTML = '<tr><td colspan="4">No hay canciones en esta playlist.</td></tr>';
+        }
+
+    } catch (err) {
+        document.getElementById("nombre-playlist").textContent = 'Error al cargar la playlist';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', cargarDetallePlaylist);
+</script>
 {% endblock %}

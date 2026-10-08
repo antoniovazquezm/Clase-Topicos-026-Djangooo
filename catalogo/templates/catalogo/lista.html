@@ -2,10 +2,10 @@
 {% extends "catalogo/base.html" %}
 
 {% block contenido %}
-<form method="get">
-    <input type="text" name="q" value="{{ q }}" placeholder="Título o artista">
+<form onsubmit="cargarCanciones(1); return false;">
+    <input type="text" id="input-q" name="q" value="{{ q }}" placeholder="Título o artista">
 
-    <select name="genero">
+    <select id="select-genero" name="genero">
         <option value="">Todos los generos</option>
         {% for g in generos %}
         <option value="{{ g }}" {% if g == genero %} selected {% endif %}>
@@ -14,51 +14,92 @@
         {% endfor %}
     </select>
     <button type="submit">Buscar</button>
-    
 </form>
-<p> Página {{page_obj.number}} de {{page_obj.paginator.num_pages}}</p>
 
-<!-- <p>{{ total }} resultados{% if total > 50 %}, se muestran los primeros 50{% endif %}.</p> -->
+<p id="info-superior">Cargando...</p>
 
 <table>
-    <tr><th>Título</th><th>Artista</th><th>Duración</th><th>Popularidad</th><th>Playlists</th></tr>
-    {% for c in page_obj %}
-    <tr>
-        <td><a href="{% url 'catalogo:detalle' c.pk %}">{{ c.titulo }}</a></td>
-        <td>{{ c.artista }}</td>
-        <td>{{ c.duracion }}</td>
-        <td>{{ c.popularidad }}</td>
-        <td>
-            {% for p in c.playlists.all %}
-                <a href="{% url 'catalogo:detalle_playlist' p.pk %}">{{ p.nombre }}</a>
-                {% if not forloop.last %}, 
-                {% endif %}
-            {% empty %}
-                No pertenece a ninguna playlist
-            {% endfor %}
-        </td>
-    </tr>
-    {% empty %}
-    <tr><td colspan="5">No hay canciones que coincidan.</td></tr>
-    {% endfor %}
+    <thead>
+        <tr><th>Título</th><th>Artista</th><th>Duración</th><th>Popularidad</th><th>Playlists</th></tr>
+    </thead>
+    <tbody id="cuerpo-tabla">
+
+    </tbody>
 </table>
 
-
-<!-- El div de la paginación tal cual lo copié y pegué de la documentación de Django y lo modifiqué con la pista -->
-<div>
-    <span class="step-links">
-        {% if page_obj.has_previous %}
-        <a href="?q={{ q|urlencode }}&genero={{ genero|urlencode }}&page={{ page_obj.previous_page_number }}">Página anterior</a>
-
-    {% endif %}
-
-        <span class="current">
-            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}.
-        </span>
-
-        {% if page_obj.has_next %}
-            <a href="?q={{ q|urlencode }}&genero={{ genero|urlencode }}&page={{ page_obj.next_page_number }}">Página siguiente</a>
-        {% endif %}
-    </span>
+<div class="paginacion">
+    <button id="btn-anterior" onclick="cargarCanciones(paginaActual - 1)" disabled>Página anterior</button>
+    <span id="info-pagina">Página 1</span>
+    <button id="btn-siguiente" onclick="cargarCanciones(paginaActual + 1)" disabled>Página siguiente</button>
 </div>
+
+<script>
+    let paginaActual = 1;
+
+    async function cargarCanciones(pagina = 1) {
+        const q = document.getElementById("input-q").value.trim();
+        const genero = document.getElementById("select-genero").value;
+
+        
+        let url = `/api/canciones/?page=${pagina}`;
+        if (q) url += `&search=${encodeURIComponent(q)}`;
+        if (genero) url += `&genero=${encodeURIComponent(genero)}`;
+
+        try {
+            const response = await fetch(url); //get
+            const data = await response.json(); //parseo a json
+
+            const tbody = document.getElementById("cuerpo-tabla"); //encuentra mi html
+            tbody.innerHTML = ""; //limpia la tabla antes de llenarla
+
+            const listaCanciones = data.results || data; //obtiene la lista de resultados
+
+            if (listaCanciones && listaCanciones.length > 0) { //si hay canciones
+                listaCanciones.forEach(c => { //itero sobre cada cancion
+                    const playlistHtml = c.playlists && c.playlists.length > 0 //La cancion tiene playlists?
+                        ? c.playlists.map(p => `<a href="/playlists/${p.id}/">${p.nombre}</a>`).join(", ") //las mapeo a links
+                        : "No pertenece a ninguna playlist"; //si no...pues arroja que no hay ninguna playlist
+
+                    let duracionTexto = "N/A"; //
+                    if (c.duracion_ms) {
+                        const totalSegundos = Math.floor(c.duracion_ms / 1000);
+                        const minutos = Math.floor(totalSegundos / 60);
+                        const segundos = totalSegundos % 60;
+                        duracionTexto = minutos + ":" + segundos; 
+                    } else if (c.duracion) {
+                        duracionTexto = c.duracion;
+                    }
+
+                    // Agreega la fila d la cancion a la talba
+                    tbody.innerHTML += `
+                        <tr>
+                            <td><a href="/canciones/${c.id}/">${c.titulo}</a></td>
+                            <td>${c.artista}</td>
+                            <td>${duracionTexto}</td>
+                            <td>${c.popularidad}</td>
+                            <td>${playlistHtml}</td>
+                        </tr>
+                    `;
+                });
+            } else {
+                tbody.innerHTML = `<tr><td colspan="5">No hay canciones que coincidan.</td></tr>`;
+            }
+
+            // Manejo seguro de paginación
+            document.getElementById("info-superior").textContent = `Página ${pagina}`;
+            document.getElementById("info-pagina").textContent = `Página ${pagina}`;
+
+            document.getElementById("btn-anterior").disabled = !data.previous;
+            document.getElementById("btn-siguiente").disabled = !data.next;
+
+            paginaActual = pagina;
+        } catch (err) {
+            console.error("Error al cargar datos:", err);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        cargarCanciones(1);
+    });
+</script>
 {% endblock %}
